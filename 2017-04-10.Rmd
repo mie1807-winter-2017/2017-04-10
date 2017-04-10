@@ -1,0 +1,673 @@
+---
+title: "MIE1807"
+author: "Neil Montgomery"
+date: "April 10, 2017"
+output: 
+  beamer_presentation:
+    keep_tex: TRUE
+    incremental: TRUE
+#    df_print: tibble
+    fig_caption: FALSE
+classoption: aspectratio=169
+header-includes:
+- \newcommand{\ve}{\varepsilon}
+- \newcommand{\dbar}[1]{\overline{\overline{#1}}}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(tidyverse)
+options(tibble.width=70, tibble.print_min=5, show.signif.stars = FALSE)
+library(readxl)
+bodyfat <- read_csv("Body_fat.csv")
+```
+
+# multiple regression
+
+## regression with more than one input variable
+
+The Universal Statistical Model:
+\begin{center}
+Output = Input + Noise
+\end{center}
+
+\pause Most datasets have more than one or two columns. The most important statistical model (in my opinion) is the linear regression model with more than one "$x$" variable:
+
+$$y = \beta_0 + \beta_1 x_1 + \cdots + \beta_k x_k + \ve$$
+
+## interpretation of the variables
+
+We treat $y$ as random. The inputs are not random. They can be whatever you like, even functions of one another, with one technical limitation*.
+
+\pause So, for example, the following is a valid multiple regression model:
+
+$$y = \beta_0 + \beta_1 x + \beta_2 x^2 + \ve$$
+
+This kind of "polynomial" model is good for fitting some types of non-linear relationships between $y$ and a single $x$.
+
+\pause *A variable cannot be a linear function of other variables in the model.
+
+\pause Other special inputs include "indicator variables" (coded 0 and 1) and "interaction terms". 
+
+## what is being accomplished in multiple regression?
+
+```{r}
+data(trees)
+trees <- as_tibble(trees)
+```
+
+`R` comes with some sample datasets. One is called `trees` and has variables `r names(trees)[1]`, `r names(trees)[2]`, and `r names(trees)[3]`. Here's a peek at the data:
+
+```{r}
+trees
+```
+
+
+## what is being accomplished in multiple regression?
+
+
+```{r, fig.align='center', warning=FALSE}
+library(scatterplot3d)
+s3d <- scatterplot3d(trees, type="h", highlight.3d=FALSE,
+angle=55, scale.y=0.7, pch=16, main="Volume versus height and girth")
+```
+
+## multiple regression fits a surface to the points
+
+```{r, fig.align='center', fig.height=6, warning=FALSE}
+s3d <- scatterplot3d(trees, type="h", highlight.3d=FALSE,
+angle=55, scale.y=0.7, pch=16, main="Volume versus height and girth")
+my.lm <- lm(Volume ~ Girth + Height, data=trees)
+s3d$plane3d(my.lm)
+```
+
+## the fundamental issues
+
+* Familiar issues with similar answers
+    + Parameter testing and estimation
+    + Mean response and prediction
+    + Model assumptions
+* New issues:
+    + Parameter interpretation
+    + Hard to visualize what is really happening
+    + Model selection: which variables?
+    + "Multicollinearity" (highly correlated inputs)
+    
+
+## parameter interpretation
+
+The multiple regression model:
+$$y = \beta_0 + \beta_1 x_1 + \ldots \beta_k x_k + \ve, \quad \ve \sim N(0,\sigma)$$
+has many parameters.
+
+\pause $\sigma$ is the variation in the distribution of the noise. It is not a function of any of the $x$ - just like before it is a constant.
+
+\pause $\beta_0$ is the "intercept"---mainly important to make sure the fitted surface actually goes through the points.
+
+\pause The $\beta_i$ from $i\in\{1,\ldots,k\}$ are the slope parameters, and have a different interpretation than before.
+
+## slope parameter interpretation
+
+$\beta_i$ is:
+
+* the change in $y$
+
+* when $x_i$ increases by 1 unit
+
+* \textbf{\textit{given [values of] all the other input variables in the model.}}
+
+\pause That bold, italic statement should echo in your mind any time you think of anything to do with $\beta_i$.
+
+
+## trees example
+
+We might want to model $y=$`Volume` (the amount of wood) as a linear model of the input variables $x_1=$`Girth` and $x_2=$`Height`, as follows:
+$$y = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \ve$$
+
+\pause We'll call the fitted model:
+$$y = b_0 + b_1 x_1 + b_2 x_2$$
+
+\pause The computer uses the method of "least squares", like before. A full treatment of the analysis requires matrix algebra.
+
+## fitted values | residuals
+
+Here's the first row of the `trees` data:
+
+```{r}
+library(knitr)
+kable(trees[1,])
+```
+
+We could call these values $y_1, x_{11},$ and $x_{21}$
+
+\pause The fitted value for $y_1$ is just:
+$$\hat{y}_1 = b_0 + b_1 x_{11} + b_2 x_{21}$$
+
+\pause The residual corresponding to this fitted value is just:
+$$y_1 - \hat{y}_1$$
+
+\pause For a dataset with $n$ rows (the sample size), there is a fitted value and residual for each row.
+
+## trees data fitted model
+
+Here's what `R` produces:
+
+```{r}
+library(xtable)
+source("multiplot.R")
+trees_fit <- trees %>% 
+  lm(Volume ~ Girth + Height, data = .)
+short_print_lm(summary(trees_fit))
+```
+
+## individual slope parameter hypothesis testing
+
+The usual hypothesis test for a single parameter:
+\begin{align*}
+H_0: \beta_i &= 0\\
+H_a: \beta_i &\ne 0
+\end{align*}
+
+\pause If $H_0$ is true, it means the $i$th variable ($x_i$) is 
+not significantly related to $y$
+
+\pause \textit{\textbf{given all the other $x$'s in the model}}
+
+## the overall hypothesis test
+
+"Is there any linear relationship between $y$ and the input variables?"
+
+\pause Null hypothesis can be expressed as:
+$$H_0: \beta_1 = \beta_2 = \cdots = \beta_k = 0$$
+
+## estimating $\sigma$
+
+This works the same as with simple regression, in which we used $\sqrt{MSE}$ where:
+$$MSE = \frac{\sum\limits_{j=1}^n \left(y_j - \hat{y}_j\right)^2}{n - 2}$$
+
+\pause $n-2$ was the sample size minus the number of parameters (two: $\beta_0$ and $\beta_1$) being estimated. 
+
+\pause There was only one input variable, so another way to think of this was "sample size minus the number of input variables, then minus 1."
+
+## estimating $\sigma$
+
+In multiple regression, nothing changes. Use $\sqrt{MSE}$, where:
+$$MSE = \frac{\sum\limits_{j=1}^n \left(y_j - \hat{y}_j\right)^2}{n - (k+1)}$$
+
+## hypothesis testing for $\beta_i$
+
+The computer produces the estimate $b_i$, which has these properties:
+\begin{align*}
+E(b_i) &= \beta_i\\
+\text{Var}(b_i) &= \sigma^2\cdot c_i
+\end{align*}
+
+\pause $c_i$ is a number that reflects the linear relationships between $x_i$ and the other inputs.
+
+\pause Just like before, we get:
+$$\frac{b_i - \beta_i}{\sqrt{MSE}\sqrt{c_i}} \sim t_{n-{k+1}}$$
+
+## hypothesis testing for $\beta_i$ in the trees example
+
+```{r}
+short_print_lm(summary(trees_fit))
+```
+
+## trees data fitted model
+
+Here's what `R` produces:
+
+```{r}
+library(xtable)
+source("multiplot.R")
+trees_fit <- trees %>% 
+  lm(Volume ~ Girth + Height, data = .)
+short_print_lm(summary(trees_fit))
+```
+
+
+## the overall $F$ test
+
+"Is there any linear relationship between $y$ and the input variables?"
+
+Based on the same, original SS decomposition. 
+
+$$\text{variation in the $y$ } = \text{ variation due to the model } + \text{ variation due to error }$$
+
+\begin{align*}
+\sum (y_i - \overline y)^2 &= \onslide<2->{\sum (\hat y_i - \overline y)^2}
++ \onslide<3->{\sum ( y_i - \hat y_i)^2\\}
+\onslide<4->{SS_{Total} &= SS_{Regression} + SS_{Error}}\\
+\onslide<5->{\chi^2}\onslide<6->{\raisebox{-2pt}{$\!\!_{n-1}$}} \onslide<5->{&=} \onslide<5->{\chi^2}\onslide<7->{\raisebox{-2pt}{$\!\!_{k}$}} \onslide<5->{+} \onslide<5->{\chi^2}\onslide<8->{\raisebox{-2pt}{$\!\!_{n-k-1}$}}
+\end{align*}
+
+\pause\pause\pause\pause\pause\pause\pause\pause The p-value then comes from:
+$$\frac{SS_{Regression}/k}{SS_{Error}/(n-k-1)} = \frac{MSR}{MSE} \sim F_{k, n-k-1}$$
+
+## the overall $F$ test - trees example
+
+The information is in the usual `R` output:
+
+```{r}
+short_print_lm(summary(trees_fit), bottom.only = TRUE)
+```
+## model assumptions and calculation requirements
+
+Model:
+$$y = \beta_0 + \beta_1 x_1 + \cdots + \beta_k x_k + \ve, \qquad \ve\sim N(0,\sigma)$$
+
+Pretty much the same as with simple regression.
+
+The main ones to worry about are:
+
+1. The linear model is appropriate (fatal if violated).
+
+2. The variance is constant (fatal if violated).
+
+3. The error is normal (OK if sample size is large "enough").
+
+\pause 1. and 2. are verified with a plot of residuals versus fitted values, and 3. is verified with a normal quantile plot of the residuals.
+
+## residuals versus fitted values - trees example (fatal)
+
+```{r}
+library(broom)
+augment(trees_fit) %>% 
+  ggplot(aes(x=.fitted, y=.resid)) + geom_point()
+```
+
+## not surprising, since the model was obviously wrong
+
+If you really wanted to model the $y=$`Volume` of wood using $x_1=$`Girth` and $x_2=$`Height`, you need to include the square of `Girth`, because of the volume-of-a-cylinder formula $V = \pi r^2 h$.
+
+So let's fit the model:
+$$y = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \beta_3 x_1^2 + \ve$$
+
+
+## new trees model fit
+
+```{r}
+trees_fit2 <- lm(Volume ~ Girth + I(Girth^2) + Height, data=trees)
+short_print_lm(summary(trees_fit2))
+```
+
+## new trees model resids v. fits
+
+```{r}
+augment(trees_fit2) %>% 
+  ggplot(aes(x=.fitted, y=.resid)) + geom_point()
+```
+
+## normal quantile plot of residuals
+
+```{r}
+augment(trees_fit2) %>% 
+  ggplot(aes(sample=.resid)) + geom_qq()
+```
+
+## towards an "adjusted" $R^2$
+
+$R^2$ comes from dividing $SS_{Total}$ through the SS decomposition:
+$$SS_{Total} = SS_{Regression} + SS_{Error}$$
+The definition $R^2 = SSR/SST = 1-SSE/SST$ is the same no matter how many input variables there are.
+
+\pause One use of $R^2$ is to compare two different regression models...
+
+...but the problem is that $R^2$ always goes up when you add any new input variable to the model. This is because $$SS_{Error}$$ always goes down with a new variable added.
+
+## adjusting $R^2$ for the number of input variables
+
+A more fair (but still not perfect) single-number-summary of a multiple regression fit is:
+
+$$R^2_{adj} = 1 - \frac{MS_{Error}}{MS_{Total}}$$
+
+where $MS_{Total}$ is just another name for the sample variance of the output $y$ values:
+$$MS_{Total} = \frac{SS_{Total}}{n-1} = \frac{\sum\limits_{i=1}^n \left(y_i - \overline y\right)^2}{n-1}$$
+
+\pause The adjustment works on the basis of this trade-off: while $SS_{Error}$$ goes down, the error degrees of freedom also goes down.
+
+$R^2_{adj}$ will play more of a role in the next topic---model selection
+
+## model selection preview
+
+A Body Fat \% dataset. 
+
+```{r}
+bodyfat <- read_csv("Body_fat.csv")
+bodyfat
+```
+
+## model selection preview
+
+We could these two simple regression models:
+
+```{r}
+wt <- bodyfat %>% lm(`Pct BF` ~ Weight, data=.)
+ht <- bodyfat %>% lm(`Pct BF` ~ Height, data=.)
+short_print_lm(summary(wt), short=TRUE)
+short_print_lm(summary(ht), short=TRUE)
+```
+
+## model selection preview
+
+Model with both. Is this a contradiction?
+
+```{r}
+bodyfat %>% 
+  lm(`Pct BF` ~ Weight + Height, data=.) %>% 
+  summary() %>% 
+  short_print_lm()
+```
+
+
+# relationships among the inputs
+
+## "multicollinearity"
+
+I stated the following fact about the $b_i$ estimates for $\beta_i$:
+$$\frac{b_i - \beta_i}{\sqrt{MSE}\sqrt{c_i}} \sim t_{n-k-1}$$
+
+where $c_i$ is a number that reflects the relationships between $x_i$ and the other inputs.
+
+\pause It turns out that the more accurately $x_i$ can be expressed as a linear combination of the other $x_j$ in the model, the larger $c_i$ gets.
+
+\pause For example, when $x_i$ and some other $x_j$ are highly "correlated", it means they are close to linear functions of one another. 
+
+\pause What happens when $c_i$ is large?
+
+## illustration of the problem - two pairs of inputs
+
+```{r, echo=FALSE, message=FALSE}
+library(dplyr)
+library(ggplot2)
+X_A <- cbind(con=rep(1,16),x1=rep(1:4,each=4),x2=rep(1:4,4))
+X_B <- cbind(con=rep(1,16),x1=rep(1:4,each=4), x2=c(
+                              (1:4-1)/20+1,
+                              (1:4-2)/20+2,
+                              (1:4-3)/20+3,
+                              (1:4-4)/20+4))
+p1 <- data.frame(X_A) %>% 
+  ggplot(aes(x=x1, y=x2)) + geom_point() + ggtitle("Case A")
+
+p2 <- data.frame(X_B) %>% 
+  ggplot(aes(x=x1, y=x2)) + geom_point() + ggtitle("Case B")
+
+multiplot(p1, p2, cols=2)
+```
+
+## illustration of the problem
+
+
+
+I'll generate some data from the same model in each case:
+$$y = 1 + 2x_1 + 3x_2 + \varepsilon, \quad\varepsilon \sim N(0,1)$$
+
+```{r, echo=FALSE}
+set.seed(2)
+error <- rnorm(16, 0, 1)
+Case_A = data.frame(y = X_A %*% c(1,2,3) + error,
+                    x1 = X_A[,2], x2 = X_A[,3])
+Case_B = data.frame(y = X_B %*% c(1,2,3) + error,
+                    x1 = X_B[,2], x2 = X_B[,3])
+
+```
+
+
+Then fit the two datasets to regression models...
+
+## Case A
+
+```{r, echo=FALSE}
+summary(lm(y ~ x1 + x2, data = Case_A)) %>% short_print_lm()
+```
+
+## Case B
+
+```{r, echo=FALSE}
+summary(lm(y ~ x1 + x2, data = Case_B)) %>% short_print_lm()
+```
+
+Note the small p-value for the overall $F$ test.
+
+## Note that multicollinearity is merely a *possible* problem
+
+Case C: same model fit to the Case B situation but with $n=288$
+
+```{r, echo=FALSE}
+set.seed(11)
+X_C <- X_B[rep(1:16, 18),]
+Case_C = data.frame(y = X_C %*% c(1,2,3) + rnorm(288, 0, 1),
+                    x1 = X_C[,2], x2 = X_C[,3])
+summary(lm(y ~ x1 + x2, data = Case_C)) %>% short_print_lm()
+```
+
+## bodyfat correlation matrix
+
+```{r}
+round(cor(bodyfat[,1:8]), 2)
+```
+
+
+## forwards, backwards, and step-wise model selection
+
+A very simple method is to just fit all possible models and see which one is the best (with small p-values and a nice $R^2_{adj}$ (or any number of other single-number-summaries you might like). But there may be too many models to consider.
+
+\pause A straightforward, feasible (but nevertheless flawed) model selection strategy involves one or more of:
+
+1. "forward" start with no model terms, and add them one at a time as long as some conditions are met.
+2. "backward" start with "all" model terms, and remove them one at a time...
+3. in either strategy, consider adding or removing terms when appropriate.
+
+\pause These are accessible strategies for novices, but they are known to have issues, \textit{especially when input variables are highly "correlated".}
+
+\pause There are (significantly) more sophisticated strategies also, which are worth it if you are serious about model selection. 
+
+## backwards selection
+
+Consider interactions or powers of terms when there is a rational basis for doing so. 
+
+Then, start with all input variables and remove the one with the highest p-value.
+
+Repeat until all the p-values are small.
+
+\pause Known problems specific to this procedure:
+
+* sample size may not sensibly suppose "all" input variables
+
+* p-values for variables involved in correlations may be artifically high.
+
+## backwards with bodyfat - full model F test
+
+```{r}
+lm(`Pct BF` ~ ., data=bodyfat) %>% summary %>% short_print_lm(bottom.only = TRUE)
+```
+
+## backwards with bodyfat - full model all p-values
+
+
+```{r}
+lm(`Pct BF` ~ ., data=bodyfat) %>% summary %>% short_print_lm(short = TRUE)
+```
+
+## what's up with waist and Abdomen?
+
+```{r}
+bodyfat %>% select(waist, Abdomen) %>% mutate(ratio = Abdomen/waist)
+```
+
+
+## backwards with bodyfat - full model all p-values
+
+
+
+```{r, results='asis'}
+library(broom)
+library(knitr)
+library(xtable)
+lm(`Pct BF` ~ . - waist, data=bodyfat) %>% summary %>% 
+  tidy %>% xtable(., digits=3) %>% print.xtable(comment=FALSE,size = "small", include.rownames=FALSE)
+```
+
+## interlude - possibly doesn't mean Knee, Weight, and Ankle are actually useless
+
+```{r}
+lm(`Pct BF` ~ Knee + Weight + Ankle, data=bodyfat) %>% summary %>% short_print_lm(short = TRUE)
+```
+
+## interlude - correlations of Weight with all others
+
+```{r}
+cor(bodyfat$Weight, bodyfat[,-3])
+```
+
+## interlude - scatterplots of Weight versus some others
+
+```{r, include=TRUE, message=FALSE, warning=FALSE, cache=TRUE}
+library(GGally)
+ggpairs(bodyfat, columns=c(3, 2, 5, 7, 11)) + theme_bw()
+```
+
+
+
+## backwards with bodyfat: -Knee
+
+```{r, results='asis'}
+lm(`Pct BF` ~ . -waist -Knee, data=bodyfat) %>% summary %>% tidy %>% xtable(., digits=3) %>% print.xtable(comment=FALSE,size = "small", include.rownames=FALSE)
+```
+
+## backwards with bodyfat: -Knee -Weight
+
+```{r, results='asis'}
+lm(`Pct BF` ~ . -waist -Knee -Weight, data=bodyfat) %>% summary %>% tidy %>% xtable(., digits=3) %>% print.xtable(comment=FALSE,size = "small", include.rownames=FALSE)
+```
+
+## backwards with bodyfat: -Knee -Weight -Ankle
+
+```{r, results='asis'}
+lm(`Pct BF` ~ . -waist -Knee -Weight -Ankle, data=bodyfat) %>% summary %>% tidy %>% arrange(p.value) %>% xtable(., digits=3) %>% print.xtable(comment=FALSE,size = "small", include.rownames=FALSE)
+```
+
+## backwards with bodyfat: -Knee -Weight -Ankle -Bicep(s)
+
+```{r, results='asis'}
+lm(`Pct BF` ~ . -waist -Knee -Weight -Ankle -Bicep, data=bodyfat) %>% summary %>% tidy %>% arrange(p.value) %>% xtable(., digits=3) %>% print.xtable(comment=FALSE,size = "small", include.rownames=FALSE)
+```
+
+## backwards with bodyfat: -Knee -Weight -Ankle -Bicep(s) -Chest
+
+```{r, results='asis'}
+lm(`Pct BF` ~ . -waist -Knee -Weight -Ankle -Bicep -Chest, data=bodyfat) %>% summary %>% tidy %>% arrange(p.value) %>% xtable(., digits=3) %>% print.xtable(comment=FALSE,size = "small", include.rownames=FALSE)
+```
+
+## backwards with bodyfat: -Knee -Weight -Ankle -Bicep(s) -Chest -Hip
+
+```{r, results='asis'}
+lm(`Pct BF` ~ . -waist -Knee -Weight -Ankle -Bicep -Chest -Hip, data=bodyfat) %>% summary %>% tidy %>% arrange(p.value) %>% xtable(., digits=3) %>% print.xtable(comment=FALSE,size = "small", include.rownames=FALSE)
+```
+
+## backwards with bodyfat: -Knee -Weight -Ankle -Bicep(s) -Chest -Hip -Thigh (could stop here)
+
+```{r, results='asis'}
+lm(`Pct BF` ~ . -waist -Knee -Weight -Ankle -Bicep -Chest -Hip -Thigh, data=bodyfat) %>% summary %>% tidy %>% arrange(p.value) %>% xtable(., digits=3) %>% print.xtable(comment=FALSE,size = "small", include.rownames=FALSE)
+```
+
+## backwards with bodyfat: -Knee -Weight -Ankle -Bicep(s) -Chest -Hip -Thigh -Forearm (could stop here)
+
+```{r, results='asis'}
+lm(`Pct BF` ~ . -waist -Knee -Weight -Ankle -Bicep -Chest -Hip -Thigh -Forearm, data=bodyfat) %>% summary %>% tidy %>% arrange(p.value) %>% xtable(., digits=3) %>% print.xtable(comment=FALSE,size = "small", include.rownames=FALSE)
+```
+
+## backwards with bodyfat: -Knee -Weight -Ankle -Bicep(s) -Chest -Hip -Thigh -Neck (rather than forearm) (could stop here)
+
+```{r, results='asis'}
+lm(`Pct BF` ~ . -waist -Knee -Weight -Ankle -Bicep -Chest -Hip -Thigh -Neck, data=bodyfat) %>% summary %>% tidy %>% arrange(p.value) %>% xtable(., digits=3) %>% print.xtable(comment=FALSE,size = "small", include.rownames=FALSE)
+```
+
+
+## backwards with bodyfat: -Knee -Weight -Ankle -Bicep(s) -Chest -Hip -Thigh -Forearm -Neck (could stop here)
+
+```{r, results='asis'}
+lm(`Pct BF` ~ . -waist -Knee -Weight -Ankle -Bicep -Chest -Hip -Thigh -Forearm -Neck, data=bodyfat) %>% summary %>% tidy %>% arrange(p.value) %>% xtable(., digits=3) %>% print.xtable(comment=FALSE,size = "small", include.rownames=FALSE)
+```
+
+
+## backwards with bodyfat: -Knee -Weight -Ankle -Bicep(s) -Chest -Hip +Thigh -Forearm -Neck -Wrist (trying a few things)
+
+```{r, results='asis'}
+lm(`Pct BF` ~ . -waist -Knee -Weight -Ankle -Bicep -Chest -Hip +Thigh -Forearm -Neck -Wrist, data=bodyfat) %>% summary %>% tidy %>% arrange(p.value) %>% xtable(., digits=3) %>% print.xtable(comment=FALSE,size = "small", include.rownames=FALSE)
+```
+
+## backwards with bodyfat: -Knee -Weight -Ankle -Bicep(s) +Chest -Hip -Thigh -Forearm -Neck -Wrist (trying a few things)
+
+```{r, results='asis'}
+lm(`Pct BF` ~ . -waist -Knee -Weight -Ankle -Bicep +Chest -Hip -Thigh -Forearm -Neck -Wrist, data=bodyfat) %>% summary %>% tidy %>% arrange(p.value) %>% xtable(., digits=3) %>% print.xtable(comment=FALSE,size = "small", include.rownames=FALSE)
+lm(`Pct BF` ~ . -waist -Knee -Weight -Ankle -Bicep -Chest -Hip -Thigh -Forearm -Neck +Wrist, data=bodyfat) %>% summary %>% tidy %>% arrange(p.value) %>% xtable(., digits=3) %>% print.xtable(comment=FALSE,size = "small", include.rownames=FALSE)
+```
+
+## backwards with bodyfat: previous two models compared with $R^2_{adj}$
+
+```{r}
+lm(`Pct BF` ~ . -waist -Knee -Weight -Ankle -Bicep +Chest -Hip -Thigh -Forearm -Neck -Wrist, data=bodyfat) %>% summary %>% short_print_lm(bottom.only=TRUE)
+  
+lm(`Pct BF` ~ . -waist -Knee -Weight -Ankle -Bicep -Chest -Hip -Thigh -Forearm -Neck +Wrist, data=bodyfat) %>% summary %>% short_print_lm(bottom.only=TRUE)
+```
+
+## backwards with bodyfat: perspectives
+
+I could try seeing if anything outperforms `Wrist`, for example.
+
+Backwards strategy is a "greedy" method (follows the best path on each short step), which isn't guaranteed to get a "best" model in the end. 
+
+The "rankings" of the variables change quite a bit.
+
+Everything is affected by correlations among the inputs.
+
+## forwards with bodyfat
+
+This is a little more tedious:
+
+1. Start with the "best" one-term model.
+
+2. Look at all two-term models (including the step 1 "winner"), and choose the best.
+
+3. Look at all three-term models (including step 2 "winner")...
+
+\pause ...until you stop, because adding more terms doesn't seem to accomplish anything.
+
+The "best" could be highest $R^2_adj$, smallest new p-value, etc. 
+
+## forwards with bodyfat - step 1
+
+You can easily find the "best" first model just by finding the input most highly correlated with the output.
+
+```{r, results='asis'}
+data.frame(r=t(cor(bodyfat$`Pct BF`, bodyfat[,-1]))) %>% rownames_to_column %>% arrange(r) %>% xtable(., digits=3) %>% print.xtable(comment=FALSE,size = "small", include.rownames=FALSE)
+```
+
+## forwards with bodyfat: +Abdomen 
+
+The two-term model "winner" (by $R^2_{adj}$) is Weight:
+
+```{r}
+lm(`Pct BF` ~ Abdomen + Weight, data=bodyfat) %>% glance %>% select(adj.r.squared)
+```
+
+Here's for, say Height:
+
+```{r}
+lm(`Pct BF` ~ Abdomen + Height, data=bodyfat) %>% glance %>% select(adj.r.squared)
+```
+
+## perspectives on forwards
+
+Forwards strategy is also a "greedy" method (follows the best path on each short step), which isn't guaranteed to get a "best" model in the end. 
+
+We can immediately see it will result in a different model from the backwards strategy.
+
+The "rankings" of the variables change quite a bit.
+
+Everything is affected by correlations among the inputs.
+
+It is actually the greedy method I tend to use most often. 
+
+
